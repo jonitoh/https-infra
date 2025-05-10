@@ -1,6 +1,6 @@
 services:
   reverse-proxy:
-    image: traefik:v3.4
+    image: traefik:v3.0
     # docker name as shown via "docker container ls"
     container_name: "reverse-proxy"
     restart: always
@@ -12,24 +12,23 @@ services:
       # add Docker as a mounted volume, so that Traefik can listen to the
       # Docker events; "docker.sock" is the UNIX socket that Docker daemon is listening to.
       # It's the main entry point for Docker API; traefik will use it to auto-discover newly created containers
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       # mount named volume to store HTTPS certificates
-      #- web-certificates:/certificates
-    command:
-      # allow Traefik to gather configuration from Docker, so that it can read labels from Docker services
-      - --providers.docker=true
-      # do not expose Docker containers unless explicitly exposed via label "traefik.enable=true"
-      - --providers.docker.exposedbydefault=false
-      # enable the access log for HTTP requests and the Traefik log for configurations and errors
-      - --accesslog
-      - --log
-      # enable the dashboard and insecure access
-      - --api.dashboard=true
-      - --api.insecure=true
+      - rp-certificates:/certificates
+      # configuration
+      - ./data/config/traefik.yml:/traefik.yml:ro
+      - ./data/config/dynamic.yml:/dynamic.yml:ro
+      - ./data/logs:/logs
+      # prevent from modifying anything that would survive a restart
+    read_only: true
+    # prevent from acquiring more privileges than given at start
+    security_opt:
+      - no-new-privileges=true
 
-      # create entrypoints "HTTP-EP" & "HTTPS-EP" (could have any name) listening on port 80 and 443, respectively
-      - --entrypoints.web.address=:80
-      #- --entrypoints.websecure.address=:443
+volumes:
+  # rp-data:
+  rp-certificates:
+
 
 networks:
   # The Traefik container has to be attached to the same network
