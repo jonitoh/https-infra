@@ -1,8 +1,10 @@
-api:
-  # enable the dashboard and insecure access
-  dashboard: true
-  insecure: true
-  debug: true
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  filePath: "/logs/traefik.log"
+  level: DEBUG
 
 accessLog:
   filePath: "/logs/access.log"
@@ -11,9 +13,11 @@ accessLog:
       names:
         User-Agent: keep
 
-log:
-  filePath: "/logs/traefik.log"
-  level: DEBUG
+api:
+  # enable the dashboard and insecure access
+  dashboard: true
+  insecure: true
+  debug: true
 
 entryPoints:
   web:
@@ -23,21 +27,27 @@ entryPoints:
     #    entryPoint:
     #      to: websecure
 
-  #websecure:
-  #  address: :443
+  websecure:
+    address: :443
   #  http:
   #    middlewares:
   #      - secureHeaders@file
   #    tls:
   #      certResolver: letsencrypt
 
+  db:
+    address: :5432
+
+  # dashboard:
+  #   address: :8080
+
 providers:
   # can read labels from Docker services
   docker:
     endpoint: "unix:///var/run/docker.sock"
+    network: "web"
     # do not expose Docker containers unless explicitly exposed via label "traefik.enable=true"
     exposedByDefault: false
-    watch: true
   file:
     filename: "dynamic.yml"
     watch: true

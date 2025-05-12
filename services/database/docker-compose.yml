@@ -1,0 +1,100 @@
+# Inspired by: https://github.com/docker/awesome-compose/tree/master/postgresql-pgadmin
+
+# Access pgAdmin4 using web browser
+# 1. Navigate to http://localhost:<PGADMIN_PORT> (from .env file)
+# 2. You will be prompted to login with username and password.
+#    Use .env credentials <PGADMIN_DEFAULT_EMAIL> AND <PGADMIN_DEFAULT_PASSWORD>
+# 3. Add a "Name" to your database under the "General" tab
+# 4. Click on "Add New Server" in pgAdmin homepage
+# 5. In the "Connection" tab, enter the following information:
+#   a. Host name/address -- pgserver
+#      (The name of database service defined in docker-composee)
+#   b. Port -- `5432` (default PostgreSQL port number)
+#   c. Maintenance database -- <POSTGRES_DB>
+#      (The name of the database specified in .env file)
+#   d. Username -- <POSTGRES_USER>
+#   e. Password -- <POSTGRES_PASSWORD>
+# 6. Click "Save" to save the server configuration
+# 7. Your PostgreSQL server should now appear under the "Servers" section in homepage
+# 8. Click on the server name to expand the database tree and view your databases, tables, etc.
+
+services:
+
+  pgserver:
+    container_name: pgserver
+    image: postgis/postgis:17-3.5
+    restart: always
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?err}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
+      PGDATA: /var/lib/postgresql/data
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.tcp.routers.pgserver.service=pgserver
+      - traefik.tcp.routers.pgserver.rule=HostSNI(`*`)
+      - traefik.tcp.routers.pgserver.tls=false
+      #- traefik.tcp.routers.pgserver.rule=Host(`localhost`)
+      - traefik.tcp.routers.pgserver.entrypoints=db
+      - traefik.tcp.services.pgserver.loadbalancer.server.port=5432
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - pgserver-data:/var/lib/postgresql/data # Configure a named volume called "pgserver-data"
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - pg-network
+      - web
+    #depends_on:
+    #  - reverse-proxy
+
+  pgadmin:
+    container_name: pgadmin
+    image: dpage/pgadmin4:9.3
+    restart: always
+    env_file:
+      - .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?err}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?err}
+      SCRIPT_NAME: /db/pgadmin
+    #ports:
+    #  - 5050:80
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    networks:
+      - pg-network
+      - web
+    depends_on:
+      pgserver:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=web
+      - traefik.http.routers.pgadmin.service=pgadmin
+      - traefik.http.routers.pgadmin.entrypoints=web
+      #websecure
+      - traefik.http.services.pgadmin.loadbalancer.server.port=80
+      - traefik.http.routers.pgadmin.rule=(Host(`localhost`) && PathPrefix(`/db/pgadmin`))
+      #- traefik.http.routers.pgadmin.tls=true
+      #- traefik.http.middlewares.testHeader.headers.customrequestheaders.X-Forwarded-Proto=web
+      #- traefik.http.routers.pgadmin.middlewares=testHeader
+
+volumes:
+  pgserver-data:
+  pgadmin-data:
+
+
+networks:
+  pg-network:
+    driver: bridge
+  web:
+    external: true

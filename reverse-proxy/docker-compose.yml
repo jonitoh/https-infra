@@ -6,8 +6,16 @@ services:
     restart: always
     ports:
       - 80:80 # http
-      #- 443:443 # https
+      - 443:443 # https
       - 8080:8080 # web ui dashboard
+      - "5432:5432" # database
+    # a voir où mettre
+    # labels:
+    #   - traefik.enable=true
+    #   - traefik.http.routers.dashboard.service=api@internal
+    #   - traefik.http.routers.dashboard.rule=Host(`trfk-dashboard.wslan`)
+    #   - traefik.http.routers.dashboard.entrypoints=web
+    #   - traefik.http.services.dashboard.loadbalancer.server.port=80
     volumes:
       # add Docker as a mounted volume, so that Traefik can listen to the
       # Docker events; "docker.sock" is the UNIX socket that Docker daemon is listening to.
@@ -18,12 +26,14 @@ services:
       # configuration
       - ./data/config/traefik.yml:/traefik.yml:ro
       - ./data/config/dynamic.yml:/dynamic.yml:ro
-      - ./data/logs:/logs
+      - ./data/logs:/logs:rw
       # prevent from modifying anything that would survive a restart
     read_only: true
     # prevent from acquiring more privileges than given at start
     security_opt:
       - no-new-privileges=true
+    networks:
+      - web
 
 volumes:
   # rp-data:
