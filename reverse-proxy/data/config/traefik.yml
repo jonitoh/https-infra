@@ -14,48 +14,43 @@ accessLog:
         User-Agent: keep
 
 api:
-  # enable the dashboard and insecure access
   dashboard: true
-  insecure: true
-  debug: true
 
 entryPoints:
   web:
-    address: :80
-    #http:
-    #  redirections:
-    #    entryPoint:
-    #      to: websecure
+    #address: ":${HTTP_PORT}"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
 
   websecure:
-    address: :443
-  #  http:
-  #    middlewares:
-  #      - secureHeaders@file
-  #    tls:
-  #      certResolver: letsencrypt
+    #address: ":${HTTPS_PORT}"
+    http:
+      middlewares:
+        - secureHeaders@file
+      tls:
+        certResolver: letsencrypt
 
   db:
-    address: :5432
-
-  # dashboard:
-  #   address: :8080
+    #address: ":${DBS_PORT}"
 
 providers:
   # can read labels from Docker services
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    network: "web"
+    network: "infra-web"
     # do not expose Docker containers unless explicitly exposed via label "traefik.enable=true"
     exposedByDefault: false
+
   file:
     filename: "dynamic.yml"
-    watch: true
 
-# certificatesResolvers:
-#   letsencrypt:
-#     acme:
-#       email: ${CERT_EMAIL}
-#       storage: acme.json
-#       tlsChallenge: {}
-
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      #email: "${CERT_EMAIL}"
+      storage: acme.json
+      tlsChallenge: {}

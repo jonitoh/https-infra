@@ -1,48 +1,58 @@
 services:
   reverse-proxy:
-    image: traefik:v3.0
+    image: traefik:v3.3
     # docker name as shown via "docker container ls"
-    container_name: "reverse-proxy"
-    restart: always
-    ports:
-      - 80:80 # http
-      - 443:443 # https
-      - 8080:8080 # web ui dashboard
-      - "5432:5432" # database
-    # a voir où mettre
-    # labels:
-    #   - traefik.enable=true
-    #   - traefik.http.routers.dashboard.service=api@internal
-    #   - traefik.http.routers.dashboard.rule=Host(`trfk-dashboard.wslan`)
-    #   - traefik.http.routers.dashboard.entrypoints=web
-    #   - traefik.http.services.dashboard.loadbalancer.server.port=80
-    volumes:
-      # add Docker as a mounted volume, so that Traefik can listen to the
-      # Docker events; "docker.sock" is the UNIX socket that Docker daemon is listening to.
-      # It's the main entry point for Docker API; traefik will use it to auto-discover newly created containers
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      # mount named volume to store HTTPS certificates
-      - rp-certificates:/certificates
-      # configuration
-      - ./data/config/traefik.yml:/traefik.yml:ro
-      - ./data/config/dynamic.yml:/dynamic.yml:ro
-      - ./data/logs:/logs:rw
-      # prevent from modifying anything that would survive a restart
+    container_name: reverse-proxy
+    restart: unless-stopped
+    # prevent from modifying anything that would survive a restart
     read_only: true
     # prevent from acquiring more privileges than given at start
     security_opt:
       - no-new-privileges=true
     networks:
-      - web
-
-volumes:
-  # rp-data:
-  rp-certificates:
-
+      - infra-web
+      - shared
+    ports:
+      - "${HTTP_PORT:-80}:80" # http
+      - "${HTTPS_PORT:-443}:443" # https
+      #- ${DASHBOARD_PORT:-8080}:8080 # web ui dashboard
+      - "${DBS_PORT:-5432}:5432" # database
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      # Docker API's main entry point: use by traefik to auto-discover containers
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # configuration TRAEFIK
+      - ./data/config/traefik.yml:/traefik.yml:ro
+      - ./data/config/dynamic.yml:/dynamic.yml:ro
+      # configuration LET'S ENCRYPT
+      - ./data/acme.json:/acme.json
+      # configuration LET'S ENCRYPT
+      - ./secrets/users_file:/users_file
+      # logs
+      - ./data/logs:/logs:rw
+    command:
+      - '--certificatesresolvers.letsencrypt.acme.email=${CERT_EMAIL}'
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=network.ss
+      - traefik.http.routers.reverse-proxy.rule=Host(`${REVERSE_PROXY_HOST}`)
+      - traefik.http.routers.reverse-proxy.entrypoints=websecure
+      - traefik.http.services.reverse-proxy.loadbalancer.server.port=${DASHBOARD_PORT:-8080}
+      - traefik.http.routers.reverse-proxy.tls=true
+      #- traefik.http.routers.admin-tls.tls.domains[0].main=admin.traefik.me
+      #- traefik.http.routers.admin-tls.tls.domains[0].sans=admin-*.traefik.me
+      #- traefik.http.routers.reverse-proxy.middlewares=user-auth@file
+      - traefik.http.routers.reverse-proxy.service=api@internal
+      # for dev purpose
+      - traefik.entryPoints.web.address=${HTTP_PORT}
+      - traefik.entryPoints.websecure.address=${HTTPS_PORT}
+      - traefik.entryPoints.db.address=${DBS_PORT}
 
 networks:
-  # The Traefik container has to be attached to the same network
-  # as the containers to be exposed.
-  # public created the first time via the init.sh script
-  web:
+  # for dev purpose
+  shared:
+    external: true
+    name: network.ss
+  # Must be attached to the common network
+  infra-web:
     external: true
