@@ -3,4 +3,5 @@
 *.env
 *.crt
 *.key
-**/data/logs/
+**/secrets/*
+**/logs/*
