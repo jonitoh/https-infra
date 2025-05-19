@@ -1,0 +1,53 @@
+version: '3.7'
+services:
+  frontend:
+    image: traefik/whoami
+    container_name: frontend
+    env_file: .env
+    # environment:
+    #   TRACKER_SCRIPT_NAME: getinfo
+    #   API_COLLECT_ENDPOINT: all
+    #   APP_SECRET: replace-me-with-a-random-string
+    labels:
+      traefik.enable: true
+      traefik.docker.network: ${SHARED-NETWORK}
+      # router
+      traefik.http.routers.frontend.service: frontend
+      traefik.http.routers.frontend.entrypoints: websecure
+      traefik.http.routers.frontend.middlewares: "default@file"
+      traefik.http.routers.frontend.rule: Host(`${FRONTEND_HOST:?err}`)
+      traefik.http.routers.frontend.tls.certresolver: "letsencrypt"
+      traefik.http.routers.frontend.tls.options: "modern@file"
+      traefik.http.routers.frontend.tls: true
+      # service
+      traefik.http.services.frontend.loadbalancer.server.port: 80
+
+    networks:
+      - frontend-network
+      - shared
+    depends_on:
+      - reverse-proxy
+      - frontend-db
+    restart: always
+
+  frontend-db:
+    image: postgres:17-alpine
+    env_file: .env
+    networks:
+      - frontend-network
+      - shared
+    volumes:
+      - db:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  db:
+
+
+networks:
+  # for dev purpose
+  shared:
+    external: true
+    name: ${SHARED-NETWORK}
+  frontend-network:
+    driver: bridge

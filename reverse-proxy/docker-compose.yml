@@ -3,56 +3,51 @@ services:
     image: traefik:v3.3
     # docker name as shown via "docker container ls"
     container_name: reverse-proxy
-    restart: unless-stopped
+    restart: always
     # prevent from modifying anything that would survive a restart
     read_only: true
     # prevent from acquiring more privileges than given at start
     security_opt:
       - no-new-privileges=true
     networks:
-      - infra-web
       - shared
     ports:
-      - "${HTTP_PORT:-80}:80" # http
-      - "${HTTPS_PORT:-443}:443" # https
-      #- ${DASHBOARD_PORT:-8080}:8080 # web ui dashboard
-      - "${DBS_PORT:-5432}:5432" # database
+      - 80:80 # http
+      - 443:443 # https
+      - 8080:8080 # web ui dashboard
+      - 5432:5432 # database
     volumes:
       - /etc/localtime:/etc/localtime:ro
       # Docker API's main entry point: use by traefik to auto-discover containers
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # configuration TRAEFIK
-      - ./data/config/traefik.yml:/traefik.yml:ro
-      - ./data/config/dynamic.yml:/dynamic.yml:ro
+      - ./config/traefik.yml:/traefik.yml:ro
+      - ./config/dynamic.yml:/dynamic.yml:ro
       # configuration LET'S ENCRYPT
-      - ./data/acme.json:/acme.json
+      - ./acme.json:/acme.json
       # configuration LET'S ENCRYPT
       - ./secrets/users_file:/users_file
       # logs
-      - ./data/logs:/logs:rw
+      - ./logs:/logs:rw
     command:
       - '--certificatesresolvers.letsencrypt.acme.email=${CERT_EMAIL}'
     labels:
-      - traefik.enable=true
-      - traefik.docker.network=network.ss
-      - traefik.http.routers.reverse-proxy.rule=Host(`${REVERSE_PROXY_HOST}`)
-      - traefik.http.routers.reverse-proxy.entrypoints=websecure
-      - traefik.http.services.reverse-proxy.loadbalancer.server.port=${DASHBOARD_PORT:-8080}
-      - traefik.http.routers.reverse-proxy.tls=true
-      #- traefik.http.routers.admin-tls.tls.domains[0].main=admin.traefik.me
-      #- traefik.http.routers.admin-tls.tls.domains[0].sans=admin-*.traefik.me
-      #- traefik.http.routers.reverse-proxy.middlewares=user-auth@file
-      - traefik.http.routers.reverse-proxy.service=api@internal
-      # for dev purpose
-      - traefik.entryPoints.web.address=${HTTP_PORT}
-      - traefik.entryPoints.websecure.address=${HTTPS_PORT}
-      - traefik.entryPoints.db.address=${DBS_PORT}
+      traefik.enable: true
+      traefik.docker.network: ${SHARED-NETWORK}
+      # router
+      traefik.http.routers.reverse-proxy.entrypoints: websecure
+      traefik.http.routers.reverse-proxy.middlewares: "user-auth@file,default@file"
+      traefik.http.routers.reverse-proxy.rule: Host(`${REVERSE_PROXY_HOST}`)
+      traefik.http.routers.reverse-proxy.tls.certresolver: "letsencrypt"
+      traefik.http.routers.reverse-proxy.tls.options: "modern@file"
+      traefik.http.routers.reverse-proxy.tls: true
+      traefik.http.routers.reverse-proxy.service: api@internal
+      # service
+      traefik.http.services.reverse-proxy.loadbalancer.server.port: 8080
+      traefik.http.services.reverse-proxy.loadbalancer.sticky.cookie.httpOnly: true
+      traefik.http.services.reverse-proxy.loadbalancer.sticky.cookie.secure: true
 
 networks:
-  # for dev purpose
   shared:
     external: true
-    name: network.ss
-  # Must be attached to the common network
-  infra-web:
-    external: true
+    name: ${SHARED-NETWORK}

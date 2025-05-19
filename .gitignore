@@ -5,3 +5,4 @@
 *.key
 **/secrets/*
 **/logs/*
+**/acme.json

@@ -1,0 +1,65 @@
+# Traefik static configuration file (/etc/traefik/traefik.yml)
+# See https://doc.traefik.io/traefik/getting-started/configuration-overview/#the-static-configuration
+# and https://doc.traefik.io/traefik/reference/static-configuration/cli/
+
+global:
+  checkNewVersion: false
+  sendAnonymousUsage: false
+
+log:
+  filePath: "/logs/traefik.log"
+  level: DEBUG
+
+accessLog:
+  filePath: "/logs/access.log"
+  fields:
+    headers:
+      names:
+        User-Agent: keep
+
+api:
+  dashboard: true
+  insecure: true
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: ":443"
+    # http:
+    #   middlewares:
+    #     - secureHeaders@file
+    #   tls:
+    #     certResolver: letsencrypt
+
+  db:
+    address: ":5432"
+
+providers:
+  # can read labels from Docker services
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    # do not expose Docker containers unless explicitly exposed via label "traefik.enable=true"
+    exposedByDefault: false
+
+  file:
+    filename: "dynamic.yml"
+
+  providersThrottleDuration: 10               # Configuration reload frequency
+
+# Certificate Resolvers are responsible for retrieving certificates from an ACME server
+# See https://doc.traefik.io/traefik/https/acme/#certificate-resolvers
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      #email: "${CERT_EMAIL}" # Email address used for registration
+      storage: acme.json # File or key used for certificates storage
+      caServer: https://acme-v02.api.letsencrypt.org/directory # prod
+      tlsChallenge: {}

@@ -1,0 +1,53 @@
+version: '3.7'
+services:
+  analytics:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: analytics
+    env_file: .env
+    environment:
+      TRACKER_SCRIPT_NAME: getinfo
+      API_COLLECT_ENDPOINT: all
+      APP_SECRET: replace-me-with-a-random-string
+    labels:
+      traefik.enable: true
+      traefik.docker.network: ${SHARED-NETWORK}
+      # router
+      traefik.http.routers.analytics.service: analytics
+      traefik.http.routers.analytics.entrypoints: websecure
+      traefik.http.routers.analytics.middlewares: "user-auth@file,default@file"
+      traefik.http.routers.analytics.rule: Host(`${ANALYTICS_HOST:?err}`) && PathPrefix(`/${ANALYTICS_URLPATH}`)
+      traefik.http.routers.analytics.tls.certresolver: "letsencrypt"
+      traefik.http.routers.analytics.tls.options: "modern@file"
+      traefik.http.routers.analytics.tls: true
+      # service
+      traefik.http.services.analytics.loadbalancer.server.port: 8080
+
+    networks:
+      - analytics-network
+      - shared
+    depends_on:
+      - reverse-proxy
+      - analytics-db
+    restart: always
+
+  analytics-db:
+    image: postgres:17-alpine
+    env_file: .env
+    networks:
+      - analytics-network
+      - shared
+    volumes:
+      - db:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  db:
+
+
+networks:
+  # for dev purpose
+  shared:
+    external: true
+    name: ${SHARED-NETWORK}
+  analytics-network:
+    driver: bridge
