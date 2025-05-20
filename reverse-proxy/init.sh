@@ -4,10 +4,10 @@
 # Script to prepare the container reverse-proxy
 # ----------------------------------------------
 # CREATE the acme.json file
-FILE="data/acme.json"
+FILE="acme.json"
 if [ ! -f "$FILE" ]; then
     echo "File $FILE needs to be created."
-    mkdir -p "$(dirname "$FILE")" && touch "$FILE"
+    touch "$FILE"
 fi
 sudo chmod 600 "$FILE";
 

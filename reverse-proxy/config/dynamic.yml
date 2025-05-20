@@ -10,8 +10,9 @@ http:
     default:
       chain:
         middlewares:
+          - redirect-to-www
           - default-security-headers
-          - error-pages
+          #- error-pages
           - gzip
   
     # A basic authentification middleware, to protect the Traefik dashboard to anyone except myself
@@ -36,14 +37,14 @@ http:
 
     # Serve the error pages when the status is included inside the following ranges
     # Use with traefik.http.routers.myRouter.middlewares: "error-pages@file"
-    error-pages:
-      errors:
-        query: "erreur{status}/"
-        service: traefik-error-pages
-        status:
-          - "403-404"
-          - "500"
-          - "503"
+    # error-pages:
+    #   errors:
+    #     query: "erreur{status}/"
+    #     service: traefik-error-pages
+    #     status:
+    #       - "403-404"
+    #       - "500"
+    #       - "503"
 
     # Enables the GZIP compression (https://docs.traefik.io/middlewares/compress/)
     #   if the response body is larger than 1400 bytes
@@ -52,6 +53,21 @@ http:
     # Use with traefik.http.routers.myRouter.middlewares: "gzip@file"
     gzip:
       compress: {}
+
+
+    # redirect www to non-www
+    redirect-to-non-www:
+      redirectregex:
+        regex: ^https://www\.(.*)
+        replacement: https://$${1}
+        permanent: true
+
+    # redirect non-www to www
+    redirect-to-www:
+      redirectregex:
+        regex: https://$${1}
+        replacement: ^https://www\.(.*)
+        permanent: true
 
 
   # services:

@@ -10,7 +10,7 @@ services:
     #   APP_SECRET: replace-me-with-a-random-string
     labels:
       traefik.enable: true
-      traefik.docker.network: ${SHARED-NETWORK}
+      traefik.docker.network: ${SHARED_NETWORK}
       # router
       traefik.http.routers.frontend.service: frontend
       traefik.http.routers.frontend.entrypoints: websecure
@@ -21,6 +21,10 @@ services:
       traefik.http.routers.frontend.tls: true
       # service
       traefik.http.services.frontend.loadbalancer.server.port: 80
+      traefik.http.services.frontend.loadbalancer.sticky.cookie.httpOnly: true
+      traefik.http.services.frontend.loadbalancer.sticky.cookie.secure: true
+      traefik.http.services.frontend.loadbalancer.sticky.cookie.name: frontend_sticky
+      traefik.http.services.frontend.loadbalancer.sticky.cookie: true
 
     networks:
       - frontend-network
@@ -48,6 +52,6 @@ networks:
   # for dev purpose
   shared:
     external: true
-    name: ${SHARED-NETWORK}
+    name: ${SHARED_NETWORK}
   frontend-network:
     driver: bridge
