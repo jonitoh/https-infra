@@ -4,5 +4,8 @@
 *.crt
 *.key
 **/secrets/*
+**/certs/*
 **/logs/*
 **/acme.json
+
+services/database/config/**

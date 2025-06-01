@@ -1,64 +1,44 @@
-# Inspired by: https://github.com/docker/awesome-compose/tree/master/postgresql-pgadmin
-
-# Access pgAdmin4 using web browser
-# 1. Navigate to http://localhost:<PGADMIN_PORT> (from .env file)
-# 2. You will be prompted to login with username and password.
-#    Use .env credentials <PGADMIN_DEFAULT_EMAIL> AND <PGADMIN_DEFAULT_PASSWORD>
-# 3. Add a "Name" to your database under the "General" tab
-# 4. Click on "Add New Server" in pgAdmin homepage
-# 5. In the "Connection" tab, enter the following information:
-#   a. Host name/address -- pgserver
-#      (The name of database service defined in docker-composee)
-#   b. Port -- `5432` (default PostgreSQL port number)
-#   c. Maintenance database -- <POSTGRES_DB>
-#      (The name of the database specified in .env file)
-#   d. Username -- <POSTGRES_USER>
-#   e. Password -- <POSTGRES_PASSWORD>
-# 6. Click "Save" to save the server configuration
-# 7. Your PostgreSQL server should now appear under the "Servers" section in homepage
-# 8. Click on the server name to expand the database tree and view your databases, tables, etc.
-
 services:
   pgserver:
-    image: postgis/postgis:17-3.5
+    image: postgis/postgis:${POSTGRES_VERSION}-3.5
     container_name: pgserver
     restart: always
     networks:
-      - pg-network
       - shared
-    depends_on:
-      - reverse-proxy
     volumes:
-      - pgserver-data:/var/lib/postgresql/data # Configure a named volume called "pgserver-data"
+      - pgserver-data:/var/lib/postgresql/data
       - /etc/localtime:/etc/localtime:ro
-      # logs
+      - ./config:/etc/postgresql
       #- ./data/logs:/logs:rw
-    ports:
-      - 5432:5432
-    env_file:
-      - .env
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    env_file: .env
     environment:
+      POSTGRES_VERSION: ${POSTGRES_VERSION:-17}
       POSTGRES_USER: ${POSTGRES_USER:?err}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?err}
       POSTGRES_DB: ${POSTGRES_DB} #optional (specify default database instead of $POSTGRES_DB)
       PGDATA: /var/lib/postgresql/data
+      DB_PORT: ${DB_PORT:-5432}
     labels:
       traefik.enable: true
-      traefik.docker.network: ${SHARED_NETWORK}
       # router
       traefik.tcp.routers.pgserver.service: pgserver
       traefik.tcp.routers.pgserver.rule: HostSNI(`${DB_HOST}`)
-      traefik.tcp.routers.pgserver.entrypoints: db
-      traefik.tcp.routers.pgserver.middlewares: "default@file"
+      traefik.tcp.routers.pgserver.entrypoints: tcp
+      traefik.tcp.routers.pgserver.tls: true
+      #traefik.http.routers.pgserver.middlewares: "default@file"
       traefik.tcp.routers.pgserver.tls.certresolver: "letsencrypt"
       traefik.tcp.routers.pgserver.tls.options: "modern@file"
-      traefik.tcp.routers.pgserver.tls: true
+      #traefik.http.routers.pgserver.tls: true
+      traefik.tcp.routers.pgserver.tls.domains[0].main: "${DB_HOST}"
+      traefik.tcp.routers.pgserver.tls.domains[0].sans: "*.${DB_HOST}"
       # service
-      traefik.tcp.services.pgserver.loadbalancer.server.port: 5432
-      traefik.tcp.services.pgserver.loadbalancer.sticky.cookie.httpOnly: true
-      traefik.tcp.services.pgserver.loadbalancer.sticky.cookie.secure: true
-      traefik.tcp.services.pgserver.loadbalancer.sticky.cookie.name: pgserver_sticky
-      traefik.tcp.services.pgserver.loadbalancer.sticky.cookie: true
+      traefik.tcp.services.pgserver.loadBalancer.server.port: ${DB_PORT}
+      #traefik.tcp.services.pgserver.loadBalancer.sticky.cookie.httpOnly: true
+      #traefik.tcp.services.pgserver.loadBalancer.sticky.cookie.secure: true
+      #traefik.tcp.services.pgserver.loadBalancer.sticky.cookie.name: pgserver_sticky
+      #traefik.tcp.services.pgserver.loadBalancer.sticky.cookie: true
+      #traefik.tcp.routers.postgres.middlewares=tcpSecureByIp@file
 
     healthcheck:
       test:
@@ -66,59 +46,13 @@ services:
         - psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
       interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 50
       start_period: 30s
-
-  pgadmin:
-    image: dpage/pgadmin4:9.3
-    container_name: pgadmin
-    restart: always
-    networks:
-      - pg-network
-      - shared
-    ports:
-      - '5050:80'
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    env_file:
-      - .env
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?err}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?err}
-      PGADMIN_PREFIXPATH: ${PGADMIN_PREFIXPATH:-pgadmin}
-      SCRIPT_NAME: /${PGADMIN_PREFIXPATH:-pgadmin}
-    depends_on:
-      pgserver:
-        condition: service_healthy
-    labels:
-      traefik.enable: true
-      traefik.docker.network: ${SHARED_NETWORK}
-      # router
-      traefik.http.routers.pgadmin.service: pgadmin
-      traefik.http.routers.pgadmin.entrypoints: websecure
-      traefik.http.routers.pgadmin.rule: Host(`${PGADMIN_HOST:?err}`) && PathPrefix(`/${PGADMIN_URLPATH}`)
-      traefik.http.routers.pgadmin.tls.certresolver: "letsencrypt"
-      traefik.http.routers.pgadmin.tls.options: "modern@file"
-      traefik.http.routers.pgadmin.tls: true
-      traefik.http.routers.pgadmin.middlewares: "default@file,pg-header"
-      # service
-      traefik.http.services.pgadmin.loadbalancer.server.port: 443
-      traefik.http.services.pgadmin.loadbalancer.sticky.cookie.httpOnly: true
-      traefik.http.services.pgadmin.loadbalancer.sticky.cookie.secure: true
-      traefik.http.services.pgadmin.loadbalancer.sticky.cookie.name: database_sticky
-      traefik.http.services.pgadmin.loadbalancer.sticky.cookie: true
-      # middleware
-      traefik.http.middlewares.pg-header.headers.customrequestheaders.X-Forwarded-Proto: websecure
 
 volumes:
   pgserver-data:
-  pgadmin-data:
-
 
 networks:
-  # for dev purpose
   shared:
     external: true
     name: ${SHARED_NETWORK}
-  pg-network:
-    driver: bridge

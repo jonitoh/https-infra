@@ -2,27 +2,25 @@
 # See https://doc.traefik.io/traefik/getting-started/configuration-overview/#the-dynamic-configuration
 
 http:
+  # Default usage of middleware
+  # Use with traefik.http.routers.<myRouter>.middlewares: "<middleware1@file>"
   middlewares:
-
     # Recommended default middleware for most of the services
-    # Use with traefik.http.routers.myRouter.middlewares: "default@file"
-    # Equivalent of traefik.http.routers.myRouter.middlewares: "default-security-headers@file,error-pages@file,gzip@file"
     default:
       chain:
         middlewares:
-          - redirect-to-www
+          #- https-redirect
+          #- non-www-redirect
           - default-security-headers
           #- error-pages
-          - gzip
+          #- gzip
   
-    # A basic authentification middleware, to protect the Traefik dashboard to anyone except myself
-    # Use with traefik.http.routers.myRouter.middlewares: "traefikAuth@file"
-    user-auth:
+    # A basic credential-based authentification middleware, to protect the Traefik dashboard to anyone except myself
+    credentials-auth:
       basicAuth:
         usersFile: users_file
 
     # Add automatically some security headers
-    # Use with traefik.http.routers.myRouter.middlewares: "default-security-headers@file"
     default-security-headers:
       headers:
         browserXssFilter: true                            # X-XSS-Protection=1; mode=block
@@ -50,24 +48,29 @@ http:
     #   if the response body is larger than 1400 bytes
     #   if the Accept-Encoding request header contains gzip
     #   if the response is not already compressed (Content-Encoding is not set)
-    # Use with traefik.http.routers.myRouter.middlewares: "gzip@file"
     gzip:
       compress: {}
 
 
-    # redirect www to non-www
-    redirect-to-non-www:
+    # redirect www.XXXX to XXXX
+    non-www-redirect:
       redirectregex:
-        regex: ^https://www\.(.*)
-        replacement: https://$${1}
-        permanent: true
+        regex: "^https://www.(.*)"
+        replacement: "https://$${1}"
+        #permanent: true
 
-    # redirect non-www to www
-    redirect-to-www:
+    # redirect XXXX to www.XXXX
+    www-redirect:
       redirectregex:
-        regex: https://$${1}
-        replacement: ^https://www\.(.*)
-        permanent: true
+        regex: "^https?://(?:www\\.)?(.+)"
+        replacement: "https://www.${1}"
+        #permanent: true
+
+    # redirect http to https
+    https-redirect:
+      redirectscheme:
+        scheme: "https"
+        #permanent: true
 
 
   # services:

@@ -1,0 +1,67 @@
+# Inspired by: https://github.com/docker/awesome-compose/tree/master/postgresql-pgadmin
+
+# Access pgAdmin4 using web browser
+# 1. Navigate to http://localhost:<PGADMIN_PORT> (from .env file)
+# 2. You will be prompted to login with username and password.
+#    Use .env credentials <PGADMIN_DEFAULT_EMAIL> AND <PGADMIN_DEFAULT_PASSWORD>
+# 3. Add a "Name" to your database under the "General" tab
+# 4. Click on "Add New Server" in pgAdmin homepage
+# 5. In the "Connection" tab, enter the following information:
+#   a. Host name/address -- pgserver
+#      (The name of database service defined in docker-composee)
+#   b. Port -- `5432` (default PostgreSQL port number)
+#   c. Maintenance database -- <POSTGRES_DB>
+#      (The name of the database specified in .env file)
+#   d. Username -- <POSTGRES_USER>
+#   e. Password -- <POSTGRES_PASSWORD>
+# 6. Click "Save" to save the server configuration
+# 7. Your PostgreSQL server should now appear under the "Servers" section in homepage
+# 8. Click on the server name to expand the database tree and view your databases, tables, etc.
+
+services:
+  pgadmin:
+    image: dpage/pgadmin4:9.3
+    container_name: pgadmin
+    restart: always
+    depends_on:
+      pgserver:
+        condition: service_healthy
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    ports:
+      - ${PGADMIN_PORT:-5050}:${PGADMIN_LISTEN_PORT:-443}
+    env_file: .env
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:?err}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:?err}
+      #PGADMIN_ENABLE_TLS: 1
+      #PGADMIN_PREFIXPATH: ${PGADMIN_PREFIXPATH:-pgadmin}
+      #SCRIPT_NAME: /${PGADMIN_PREFIXPATH:-pgadmin}
+    labels:
+      traefik.enable: true
+      traefik.docker.network: ${SHARED_NETWORK}
+      # router
+      traefik.http.routers.pgadmin.service: pgadmin
+      traefik.http.routers.pgadmin.entrypoints: db
+      traefik.http.routers.pgadmin.rule: Host(`${PGADMIN_HOST:?err}`) # && PathPrefix(`/${PGADMIN_URLPATH:?err}`)
+      traefik.http.routers.pgadmin.tls.certresolver: "letsencrypt"
+      traefik.http.routers.pgadmin.tls.options: "modern@file"
+      traefik.http.routers.pgadmin.tls: true
+      traefik.http.routers.pgadmin.middlewares: "default@file,pg-header"
+      # service
+      traefik.http.services.pgadmin.loadBalancer.server.port: ${PGADMIN_LISTEN_PORT:-443}
+      traefik.http.services.pgadmin.loadBalancer.sticky.cookie.httpOnly: true
+      traefik.http.services.pgadmin.loadBalancer.sticky.cookie.secure: true
+      traefik.http.services.pgadmin.loadBalancer.sticky.cookie.name: database_sticky
+      traefik.http.services.pgadmin.loadBalancer.sticky.cookie: true
+      # middleware
+      traefik.http.middlewares.pg-header.headers.customrequestheaders.X-Forwarded-Proto: websecure
+
+volumes:
+  pgadmin-data:
+
+
+networks:
+  shared:
+    external: true
+    name: ${SHARED_NETWORK}

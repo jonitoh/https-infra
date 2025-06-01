@@ -9,9 +9,15 @@ global:
 log:
   filePath: "/logs/traefik.log"
   level: DEBUG
+  maxSize: 2
+  maxBackups: 3
+  maxAge: 3
+  compress: true
 
 accessLog:
   filePath: "/logs/access.log"
+  addInternals: true
+  bufferingSize: 100
   fields:
     headers:
       names:
@@ -29,18 +35,26 @@ entryPoints:
         entryPoint:
           to: websecure
           scheme: https
-          permanent: true
+        #permanent: true
 
   websecure:
     address: ":443"
-    # http:
-    #   middlewares:
-    #     - secureHeaders@file
-    #   tls:
-    #     certResolver: letsencrypt
+    http:
+      tls:
+        certresolver: letsencrypt
+
+  tcp:
+    address: ":5432"
 
   db:
-    address: ":5432"
+    address: ":5050"
+
+  cms:
+    address: ":1337"
+
+  analytics:
+    address: ":3000"
+
 
 providers:
   # can read labels from Docker services
@@ -50,16 +64,24 @@ providers:
     exposedByDefault: false
 
   file:
-    filename: "dynamic.yml"
+    directory: /etc/traefik
+    watch: true
 
   providersThrottleDuration: 10               # Configuration reload frequency
 
 # Certificate Resolvers are responsible for retrieving certificates from an ACME server
 # See https://doc.traefik.io/traefik/https/acme/#certificate-resolvers
 certificatesResolvers:
+  # Enable ACME (Let's Encrypt): automatic SSL.
   letsencrypt:
     acme:
       #email: "${CERT_EMAIL}" # Email address used for registration
-      storage: acme.json # File or key used for certificates storage
+      storage: /etc/certs/acme.json # File or key used for certificates storage
       caServer: https://acme-v02.api.letsencrypt.org/directory # prod
-      tlsChallenge: {}
+      #caServer: https://acme-staging-v02.api.letsencrypt.org/directory # staging
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+        delayBeforeCheck: 20
