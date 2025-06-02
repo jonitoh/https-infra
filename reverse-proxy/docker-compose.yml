@@ -24,9 +24,9 @@ services:
       # Docker API's main entry point: use by traefik to auto-discover containers
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # configuration TRAEFIK LET'S ENCRYPT (static + dynamic + acme )
-      - ./config:/etc/traefik:ro
+      - ./config:/etc/traefik
       # configuration private routes
-      - ./secrets/users_file:/users_file
+      - ./secrets/users_file:/users_file:ro
       # Certs dir
       - rp-ssl-certs:/etc/certs
       # logs
