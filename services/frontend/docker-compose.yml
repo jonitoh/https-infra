@@ -2,11 +2,16 @@ services:
   frontend:
     image: traefik/whoami
     container_name: frontend
+    restart: always
+    networks:
+      - shared
     env_file: .env
     labels:
+      # -- global
       traefik.enable: true
       traefik.docker.network: ${SHARED_NETWORK}
-      # router
+      
+      # -- router
       traefik.http.routers.frontend.service: frontend
       traefik.http.routers.frontend.entrypoints: websecure
       traefik.http.routers.frontend.middlewares: "default@file"

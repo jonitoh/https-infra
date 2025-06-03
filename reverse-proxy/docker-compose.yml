@@ -16,7 +16,7 @@ services:
       - 443:443 # websecure ( https )
       # - 8080:8080 # web ui ( dashboard )
       - 5432:5432 # database (tcp connection)
-      - 5050:5050 # database ui ( dashboard )
+      # - 5050:5050 # database ui ( dashboard )
       - 1337:1337 # cms ui ( dashboard )
       - 3000:3000 # analytics ui ( dashboard )
     volumes:

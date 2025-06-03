@@ -2,6 +2,9 @@ services:
   cms:
     image: traefik/whoami
     container_name: cms
+    restart: always
+    networks:
+      - shared
     env_file: .env
     labels:
       # -- global
@@ -23,11 +26,6 @@ services:
       traefik.http.services.cms.loadBalancer.sticky.cookie.secure: true
       traefik.http.services.cms.loadBalancer.sticky.cookie.name: cms_sticky
       traefik.http.services.cms.loadBalancer.sticky.cookie: true
-
-
-    networks:
-      - shared
-    restart: always
 
 networks:
   shared:
